@@ -1,4 +1,6 @@
 # Medical-Chatbot
+<img width="996" height="765" alt="Screenshot 2025-10-21 133558" src="https://github.com/user-attachments/assets/514f04ec-c52f-4e30-88d3-76aca95fd0e4" />
+
 Complete Setup Guide - Medical Chatbot with Flask
 Prerequisites
 
@@ -20,10 +22,11 @@ mkdir templates
 
 STEP 2: Create Virtual Environment (NO ANACONDA)
 powershell# Create virtual environment
+conda deactivate #if in anaconda powershell.
 python -m venv venv
 
 # Activate it
-.\venv\Scripts\Activate.ps1
+.\venv\Scripts\Activate
 
 # If you get execution policy error, run this first:
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
@@ -34,19 +37,25 @@ STEP 3: Install All Dependencies
 powershell# Upgrade pip first
 python -m pip install --upgrade pip
 
-# Install core dependencies
+pip install --upgrade pip
 pip install flask
 pip install python-dotenv
-
-# Install LangChain components
+pip install langchain
+pip install langchain-core
+pip install langchain-community
+pip install langchain-pinecone
+pip install langchain-text-splitters
+pip install pypdf
+pip install sentence-transformers
+pip install pinecone-client
+pip list | findstr langchain
+pip list | findstr pinecone
+pip install flask
+pip install python-dotenv
 pip install langchain
 pip install langchain-community
 pip install langchain-pinecone
 pip install langchain-text-splitters
-
-# Install embeddings and vector store
-pip install sentence-transformers
-pip install pinecone-client
 
 # Install Ollama (for local LLM)
 # Download Ollama from: https://ollama.com/download
@@ -95,9 +104,13 @@ Save the app.py code you provided to the root folder.
 
 STEP 7: Prepare Your Data
 
-Convert your medical PDF to .txt format
-Place the .txt file(s) in the data/ folder
-Name it something like Medical_book.txt
+# Install PyPDF for PDF extraction
+pip install pypdf
+
+# Alternative if pypdf doesn't work:
+pip install PyPDF2
+
+Name refernce .pdf something like Medical_book.pdf under data
 
 
 STEP 8: Build the Knowledge Base (ONE-TIME SETUP)
