@@ -23,10 +23,11 @@ mkdir templates
 #STEP 2: Create Virtual Environment (NO ANACONDA)
 powershell# Create virtual environment
 conda deactivate #if in anaconda powershell.
-python -m venv venv
+
+python -m venv venv-final
 
 Activate it
-.\venv\Scripts\Activate
+.\venv-final\Scripts\Activate.ps1
 
 #STEP 3: Install All Dependencies
 
@@ -102,6 +103,8 @@ Name refernce .pdf something like Medical_book.pdf under data
 
 
 #STEP 8: Build the Knowledge Base (ONE-TIME SETUP)
+
+
 python store_index.py
 ```
 
@@ -127,7 +130,9 @@ Keep this window open while using the chatbot.
 
 #STEP 10: Run the Flask App
 Back in your original PowerShell (with venv activated):
-powershellpython app.py
+
+
+python app.py
 ```
 
 You should see:
