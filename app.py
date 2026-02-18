@@ -33,7 +33,8 @@ print("🔧 Initializing Medical Chatbot...")
 # Embeddings (same as used in store_index.py)
 print("📦 Loading embeddings model...")
 embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    model_name="all-MiniLM-L6-v2", # This is the smallest/fastest model
+    model_kwargs={'device': 'cpu'}  # Force CPU because Render has no GPU
 )
 
 # Pinecone vector store
