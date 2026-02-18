@@ -1,149 +1,100 @@
-# app.py
 import os
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
-# LangChain community modules
+# Import Groq and Pinecone
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.llms import Ollama
+from langchain_groq import ChatGroq
+from langchain_pinecone import PineconeVectorStore
 
-# Pinecone
-from langchain_pinecone import Pinecone as PineconeVectorStore # 1. Import the VectorStore class with an alias
-from pinecone import Pinecone as PineconeClient
 from src.prompt import system_prompt
 
-# Load environment variables
 load_dotenv()
 
-# ========================================
-# CONSTANTS
-# ========================================
+# Configuration
 INDEX_NAME = "medical-chatbot"
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
 
+# Error handling for missing keys
 if not PINECONE_API_KEY:
-    raise ValueError("❌ PINECONE_API_KEY not found in .env file!")
+    print("❌ Error: PINECONE_API_KEY is missing!")
+if not GROQ_API_KEY:
+    print("❌ Error: GROQ_API_KEY is missing!")
 
-# ========================================
-# INITIALIZE COMPONENTS
-# ========================================
+print("\n" + "="*70)
+print("🔧 Initializing Medical Chatbot (Render/Groq Version)")
+print("="*70)
 
-print("🔧 Initializing Medical Chatbot...")
-
-# Embeddings (same as used in store_index.py)
-print("📦 Loading embeddings model...")
+# 1. Load Embeddings (CPU optimized)
+print("\n📦 Loading embeddings...")
 embeddings = HuggingFaceEmbeddings(
-    model_name="all-MiniLM-L6-v2", # This is the smallest/fastest model
-    model_kwargs={'device': 'cpu'}  # Force CPU because Render has no GPU
+    model_name="all-MiniLM-L6-v2",
+    model_kwargs={'device': 'cpu'}
 )
+print("✅ Embeddings loaded")
 
-# Pinecone vector store
-print("☁️  Connecting to Pinecone...")
+# 2. Connect to Pinecone
+print("\n☁️ Connecting to Pinecone...")
 try:
     docsearch = PineconeVectorStore.from_existing_index(
         index_name=INDEX_NAME,
         embedding=embeddings
     )
     retriever = docsearch.as_retriever(search_kwargs={"k": 5})
-    print("✅ Connected to Pinecone successfully")
+    print(f"✅ Connected to Pinecone Index: {INDEX_NAME}")
 except Exception as e:
-    print(f"❌ Failed to connect to Pinecone: {e}")
-    print("💡 Make sure you ran 'python store_index.py' first!")
-    raise
+    print(f"❌ Pinecone error: {e}")
 
-# Ollama LLM
-print("🤖 Connecting to Ollama...")
+# 3. Connect to Groq (The Brain)
+print("\n🤖 Connecting to Groq...")
 try:
-    ollama_llm = Ollama(model="deepseek-r1:8b")
-    print("✅ Connected to Ollama successfully")
+    llm = ChatGroq(
+        model="llama-3.1-8b-instant",
+        temperature=0.2,
+        groq_api_key=GROQ_API_KEY
+    )
+    print("✅ Connected to Groq")
 except Exception as e:
-    print(f"❌ Failed to connect to Ollama: {e}")
-    print("💡 Make sure Ollama is running: 'ollama serve'")
-    print("💡 And model is downloaded: 'ollama pull deepseek-r1:8b'")
-    raise
-
-# ========================================
-# FLASK APP
-# ========================================
+    print(f"❌ Groq error: {e}")
 
 app = Flask(__name__)
 
 @app.route("/")
 def index():
-    """Render the chat interface"""
     return render_template("chat.html")
-
 
 @app.route("/get", methods=["POST"])
 def chat():
-    """Handle chat requests"""
     try:
-        # Get user message
         user_query = request.form.get("msg")
-        
-        if not user_query or user_query.strip() == "":
+        if not user_query:
             return "⚠️ Please enter a question"
+
+        print(f"\n📨 Query: {user_query}")
         
-        print(f"\n📨 User query: {user_query}")
-        
-        # Retrieve relevant documents from Pinecone
-        print("🔍 Searching knowledge base...")
+        # Retrieve docs
         docs = retriever.invoke(user_query)
-        
-        if not docs:
-            return "❌ I couldn't find relevant information in the knowledge base. Please try rephrasing your question."
-        
-        # Build context from retrieved documents
         context_text = "\n\n".join([doc.page_content for doc in docs])
-        print(f"📚 Retrieved {len(docs)} relevant documents")
         
-        # Build full prompt
+        # Generate Answer
         full_prompt = f"""{system_prompt}
 
-Context from Medical Knowledge Base:
+Context:
 {context_text}
 
-User Question: {user_query}
+Question: {user_query}
 
 Answer:"""
         
-        # Get response from Ollama
-        print("💭 Generating response...")
-        response = ollama_llm.invoke(full_prompt)
-        
-        print(f"✅ Response generated: {len(response)} characters")
-        
-        return str(response)
+        response = llm.invoke(full_prompt)
+        return response.content
     
     except Exception as e:
-        error_msg = f"❌ Error: {str(e)}"
-        print(error_msg)
-        import traceback
-        traceback.print_exc()
-        return f"Sorry, an error occurred: {str(e)}"
-
-
-@app.route("/health")
-def health():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "healthy",
-        "index_name": INDEX_NAME,
-        "model": "deepseek-r1:8b"
-    })
-
-
-# ========================================
-# MAIN
-# ========================================
+        print(f"❌ Error: {e}")
+        return "Sorry, I encountered an error processing your request."
 
 if __name__ == "__main__":
-    print("\n" + "="*60)
-    print("🏥 MEDICAL CHATBOT SERVER STARTING")
-    print("="*60)
-    print(f"🌐 Open browser: http://localhost:8080")
-    print(f"🔍 Using Pinecone index: {INDEX_NAME}")
-    print(f"🤖 Using Ollama model: deepseek-r1:8b")
-    print("="*60 + "\n")
-    
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    # Render sets the PORT env variable automatically
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
