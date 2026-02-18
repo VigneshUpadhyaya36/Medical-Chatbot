@@ -26,7 +26,8 @@ print("="*70)
 
 print("\n📦 Loading embeddings...")
 embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    model_name="all-MiniLM-L6-v2", # This is the smallest/fastest model
+    model_kwargs={'device': 'cpu'}  # Force CPU because Render has no GPU
 )
 print("✅ Embeddings loaded")
 
