@@ -1,0 +1,60 @@
+name: Medical Chatbot CI/CD Pipeline
+
+# TRIGGER: Runs every time you merge a PR or push directly to main
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  # ==========================================
+  # JOB 1: CODE QUALITY CHECK (CI)
+  # GitHub gives you a FREE Linux machine in the cloud to run this.
+  # Think of this as a "Quality Gate" — code only deploys if it passes.
+  # ==========================================
+  quality-check:
+    name: Lint & Quality Check
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Download your code onto the cloud Linux machine
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Install Python (same version as Render)
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Step 3: Install the quality checker tool
+      - name: Install flake8
+        run: pip install flake8
+
+      # Step 4: THE GATE — check for syntax errors and undefined names
+      # If this fails, the deploy job below is CANCELLED automatically.
+      # E9 = syntax errors, F63/F7/F82 = undefined names / import errors
+      - name: Run code quality check
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.git,__pycache__,.venv
+
+      # Step 5: Confirm the gate passed
+      - name: Quality check passed
+        run: echo "✅ Code quality gate passed — proceeding to deploy"
+
+  # ==========================================
+  # JOB 2: DEPLOY TO RENDER (CD)
+  # Only runs if Job 1 PASSED. This is the "Continuous Deployment" part.
+  # It hits the Render Deploy Hook URL, telling Render to pull new code.
+  # ==========================================
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: quality-check          # Depends on Job 1 — if lint fails, this is skipped
+    if: success()                 # Extra safety: only deploy if everything above passed
+
+    steps:
+      - name: Trigger Render deployment
+        run: |
+          echo "🚀 Triggering Render deployment..."
+          curl --fail -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          echo "✅ Render deployment triggered successfully"
