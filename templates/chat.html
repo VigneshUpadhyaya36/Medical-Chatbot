@@ -1,132 +1,918 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Medical Chatbot</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f0f0f0;
-        }
-        .chat-container {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            text-align: center;
-        }
-        #chatbox {
-            height: 400px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            padding: 15px;
-            margin: 20px 0;
-            background: #fafafa;
-            border-radius: 5px;
-        }
-        .message {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 5px;
-        }
-        .user {
-            background: #007bff;
-            color: white;
-            text-align: right;
-        }
-        .bot {
-            background: #e9ecef;
-            color: #333;
-        }
-        .input-area {
-            display: flex;
-            gap: 10px;
-        }
-        #messageInput {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        #sendBtn {
-            padding: 10px 20px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        #sendBtn:hover {
-            background: #0056b3;
-        }
-        .loading {
-            color: #666;
-            font-style: italic;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AI Clinical Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ══════════ DESIGN TOKENS ══════════ */
+:root {
+  --cb-bg-opacity     : 0.82;
+  --cb-blur           : 20px;
+  --cb-border-opacity : 0.28;
+  --cb-tint-r         : 255;
+  --cb-tint-g         : 248;
+  --cb-tint-b         : 218;
+  --cb-shadow-opacity : 0.45;
+  --cb-width          : 460px;
+  --cb-height         : 560px;
+  --cb-radius         : 22px;
+}
+
+/* ══════════ RESET ══════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'DM Sans', sans-serif; }
+
+/* ══════════ WARM FOREST SKY ══════════ */
+body {
+  background: radial-gradient(ellipse 110% 65% at 50% 0%,
+    #fff9c4 0%, #ffe082 8%, #ffb300 18%, #e65100 30%,
+    #7c4a00 42%, #4e342e 55%, #2e4a1e 68%, #1b3a0f 82%, #0a1f05 100%
+  );
+}
+
+/* ══════════ TREE SVG ══════════ */
+#tree-svg {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+}
+
+/* ══════════ LEAF CANVAS ══════════ */
+#leaf-canvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 2; pointer-events: none;
+}
+
+/* ══════════ CHATBOX WRAPPER ══════════ */
+#cb-wrap {
+  position: fixed;
+  left: 50%; top: 50%;
+  z-index: 10;
+  transform: translate(-50%, -50%) scale(0);
+  transform-origin: center center;
+  opacity: 0;                        /* ← starts invisible */
+  will-change: transform, opacity;
+}
+
+/* ══════════ CHATBOX PANEL ══════════ */
+#chatbox {
+  width: var(--cb-width);
+  height: var(--cb-height);
+  background: rgba(var(--cb-tint-r), var(--cb-tint-g), var(--cb-tint-b), var(--cb-bg-opacity));
+  backdrop-filter: blur(var(--cb-blur));
+  -webkit-backdrop-filter: blur(var(--cb-blur));
+  border-radius: var(--cb-radius);
+  border: 1px solid rgba(255,255,255,var(--cb-border-opacity));
+  box-shadow:
+    0 28px 70px rgba(0,0,0,var(--cb-shadow-opacity)),
+    0 0 0 1px rgba(240,200,80,0.14),
+    inset 0 1px 0 rgba(255,255,255,0.38);
+  display: flex; flex-direction: column; overflow: hidden; position: relative;
+}
+#chatbox::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 38%;
+  background: linear-gradient(to bottom, rgba(255,240,130,0.10), transparent);
+  pointer-events: none; border-radius: var(--cb-radius) var(--cb-radius) 0 0;
+}
+
+/* ── Header ── */
+#cb-header {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid rgba(100,60,10,0.12);
+  background: rgba(120,70,20,0.09);
+  display: flex; align-items: center; gap: 11px; flex-shrink: 0;
+}
+.cb-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(80,50,10,0.32);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; flex-shrink: 0;
+}
+#cb-header h2 {
+  font-family: 'Lora', serif; font-size: 15px; font-weight: 600;
+  color: #2a1505; letter-spacing: 0.1px; line-height: 1.2;
+}
+#cb-header p { font-size: 11px; color: rgba(42,21,5,0.50); margin-top: 2px; }
+
+/* ── Messages ── */
+#messages {
+  flex: 1; overflow-y: auto; padding: 14px 15px;
+  display: flex; flex-direction: column; gap: 10px;
+  scroll-behavior: smooth; overscroll-behavior: contain;
+}
+#messages::-webkit-scrollbar { width: 3px; }
+#messages::-webkit-scrollbar-thumb { background: rgba(120,80,20,0.28); border-radius: 2px; }
+
+.msg {
+  max-width: 86%; padding: 9px 13px 10px; border-radius: 14px;
+  font-size: 13.5px; line-height: 1.58; animation: popIn .22s ease;
+}
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(5px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+.msg .lbl {
+  font-size: 10px; font-weight: 500; letter-spacing: .55px;
+  text-transform: uppercase; opacity: .55; margin-bottom: 3px;
+}
+.msg.user {
+  align-self: flex-end;
+  background: rgba(70,42,12,0.80); color: #fdf3dd;
+  border-bottom-right-radius: 4px;
+}
+.msg.bot {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.55); color: #1a0d03;
+  border: 1px solid rgba(255,255,255,0.58); border-bottom-left-radius: 4px;
+}
+
+/* ── Input ── */
+#cb-input-row {
+  padding: 10px 13px 12px;
+  border-top: 1px solid rgba(100,60,10,0.10);
+  background: rgba(0,0,0,0.04);
+  display: flex; gap: 9px; align-items: center; flex-shrink: 0;
+}
+#cb-input {
+  flex: 1; background: rgba(255,255,255,0.52);
+  border: 1px solid rgba(130,80,20,0.18); border-radius: 12px;
+  padding: 10px 13px; font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px; color: #1a0d03; outline: none; min-width: 0;
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+#cb-input::placeholder { color: rgba(42,21,5,0.35); }
+#cb-input:focus {
+  background: rgba(255,255,255,0.74);
+  border-color: rgba(130,80,20,0.40);
+  box-shadow: 0 0 0 3px rgba(200,130,30,0.12);
+}
+#cb-send {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(70,42,12,0.84); border: none; color: #fdf3dd;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .2s, transform .15s, box-shadow .2s; flex-shrink: 0;
+}
+#cb-send:hover  { background: rgba(70,42,12,1); transform: scale(1.07); box-shadow: 0 4px 14px rgba(70,42,12,.38); }
+#cb-send:active { transform: scale(.95); }
+#cb-send:disabled { opacity: .35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ══════════ AMBIENT LABEL ══════════ */
+#env-label {
+  position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+  z-index: 3; font-family: 'Lora', serif; font-style: italic;
+  font-size: 13px; color: rgba(255,240,155,0.50); letter-spacing: .4px;
+  pointer-events: none; transition: opacity .6s ease;
+  text-shadow: 0 1px 8px rgba(0,0,0,.65); white-space: nowrap;
+}
+#env-label.invisible { opacity: 0; }
+
+/* ══════════ RESPONSIVE ══════════ */
+@media (max-width: 580px) {
+  #chatbox { width: 93vw; height: min(76vh, 570px); border-radius: 16px; }
+}
+@media (max-height: 660px) {
+  #chatbox { height: 84vh; }
+}
+</style>
 </head>
 <body>
-    <div class="chat-container">
-        <h1>🏥 Medical Chatbot</h1>
-        <div id="chatbox"></div>
-        <div class="input-area">
-            <input type="text" id="messageInput" placeholder="Ask a medical question..." />
-            <button id="sendBtn">Send</button>
-        </div>
+
+<!-- ════════════════════════════════════════════════════════════
+     BANYAN TREE SVG — layered, textured, realistic
+════════════════════════════════════════════════════════════ -->
+<svg id="tree-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+<defs>
+
+  <!-- ── SUNLIGHT — strong warm burst from upper-centre ── -->
+  <radialGradient id="sun" cx="50%" cy="5%" r="75%">
+    <stop offset="0%"   stop-color="#fffff0" stop-opacity="1.0"/>
+    <stop offset="5%"   stop-color="#fff9c4" stop-opacity="0.96"/>
+    <stop offset="14%"  stop-color="#ffe57a" stop-opacity="0.88"/>
+    <stop offset="26%"  stop-color="#ffb300" stop-opacity="0.68"/>
+    <stop offset="44%"  stop-color="#e65100" stop-opacity="0.30"/>
+    <stop offset="65%"  stop-color="#3e2000" stop-opacity="0.08"/>
+    <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+  </radialGradient>
+
+  <!-- ── SECONDARY WARM SIDE GLOW ── -->
+  <radialGradient id="sideGlow" cx="50%" cy="30%" r="55%">
+    <stop offset="0%"   stop-color="#ffd54f" stop-opacity="0.22"/>
+    <stop offset="100%" stop-color="#ffd54f" stop-opacity="0"/>
+  </radialGradient>
+
+  <!-- ── BARK GRADIENTS per branch family ── -->
+  <linearGradient id="bkL" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%"   stop-color="#1a0800"/>
+    <stop offset="25%"  stop-color="#4a2c0e"/>
+    <stop offset="50%"  stop-color="#8a5a28"/>
+    <stop offset="72%"  stop-color="#4a2c0e"/>
+    <stop offset="100%" stop-color="#1a0800"/>
+  </linearGradient>
+
+  <!-- ── GLOW FILTER for sunlight spots ── -->
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="6" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="softBlur" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="12"/>
+  </filter>
+  <filter id="tinyBlur">
+    <feGaussianBlur stdDeviation="2.5"/>
+  </filter>
+
+</defs>
+
+<!-- ════ 1. DISTANT BACKGROUND FOREST (blurry depth) ════ -->
+<ellipse cx="80"   cy="580" rx="340" ry="270" fill="#071a07" opacity="0.72" filter="url(#softBlur)"/>
+<ellipse cx="1360" cy="580" rx="340" ry="270" fill="#071a07" opacity="0.72" filter="url(#softBlur)"/>
+<ellipse cx="240"  cy="520" rx="260" ry="200" fill="#0d2a0d" opacity="0.55" filter="url(#softBlur)"/>
+<ellipse cx="1200" cy="520" rx="260" ry="200" fill="#0d2a0d" opacity="0.55" filter="url(#softBlur)"/>
+<ellipse cx="-30"  cy="640" rx="220" ry="190" fill="#081508" opacity="0.60" filter="url(#softBlur)"/>
+<ellipse cx="1470" cy="640" rx="220" ry="190" fill="#081508" opacity="0.60" filter="url(#softBlur)"/>
+
+<!-- ════ 2. MAIN CANOPY — back dark layer ════ -->
+<!-- Outermost dark mass -->
+<ellipse cx="720" cy="260" rx="690" ry="380" fill="#102810" opacity="0.96"/>
+<!-- Dense green layers — irregular blobs like real foliage -->
+<ellipse cx="720" cy="210" rx="598" ry="310" fill="#1a5e1a"/>
+<ellipse cx="580" cy="240" rx="440" ry="270" fill="#1e6b1e" opacity="0.92"/>
+<ellipse cx="870" cy="235" rx="448" ry="265" fill="#1e6b1e" opacity="0.92"/>
+<ellipse cx="720" cy="165" rx="520" ry="262" fill="#26882e"/>
+<!-- Sub-blobs giving organic shape -->
+<ellipse cx="310" cy="295" rx="280" ry="198" fill="#1e6b1e" opacity="0.88"/>
+<ellipse cx="1130" cy="290" rx="282" ry="200" fill="#1e6b1e" opacity="0.88"/>
+<ellipse cx="475"  cy="175" rx="255" ry="192" fill="#2e962e"/>
+<ellipse cx="970"  cy="172" rx="258" ry="188" fill="#2e962e"/>
+<ellipse cx="720"  cy="118" rx="395" ry="225" fill="#38b038"/>
+<!-- Lighter mid-canopy greens -->
+<ellipse cx="188"  cy="370" rx="195" ry="148" fill="#1e6b1e" opacity="0.75"/>
+<ellipse cx="1255" cy="365" rx="198" ry="150" fill="#1e6b1e" opacity="0.75"/>
+<ellipse cx="720"  cy="145" rx="320" ry="195" fill="#42c042" opacity="0.72"/>
+<!-- Canopy front-lit pockets -->
+<ellipse cx="540"  cy="205" rx="205" ry="152" fill="#52cc52" opacity="0.62"/>
+<ellipse cx="900"  cy="200" rx="208" ry="148" fill="#52cc52" opacity="0.62"/>
+<ellipse cx="720"  cy="138" rx="280" ry="185" fill="#7ee07e" opacity="0.42"/>
+<!-- Bright lit fringe -->
+<ellipse cx="455"  cy="310" rx="175" ry="122" fill="#a8eaa8" opacity="0.30"/>
+<ellipse cx="990"  cy="306" rx="178" ry="124" fill="#a8eaa8" opacity="0.30"/>
+<ellipse cx="328"  cy="362" rx="148" ry="105" fill="#c0f0b0" opacity="0.22"/>
+<ellipse cx="1115" cy="358" rx="150" ry="107" fill="#c0f0b0" opacity="0.22"/>
+
+<!-- ════ 3. SUNLIGHT LAYERS ════ -->
+<!-- Main burst -->
+<rect x="0" y="0" width="1440" height="900" fill="url(#sun)"/>
+<!-- Ambient warm fill -->
+<rect x="0" y="0" width="1440" height="900" fill="url(#sideGlow)"/>
+
+<!-- ════ 4. DAPPLED LIGHT — gaps in canopy (light bursts) ════ -->
+<!-- These look like sun shining through leaf gaps -->
+<ellipse cx="618"  cy="152" rx="28" ry="22" fill="#fffde7" opacity="0.55" filter="url(#glow)"/>
+<ellipse cx="780"  cy="128" rx="24" ry="19" fill="#fffde7" opacity="0.62" filter="url(#glow)"/>
+<ellipse cx="682"  cy="108" rx="32" ry="25" fill="#fff9c4" opacity="0.70" filter="url(#glow)"/>
+<ellipse cx="848"  cy="162" rx="20" ry="16" fill="#fffde7" opacity="0.48" filter="url(#glow)"/>
+<ellipse cx="540"  cy="188" rx="18" ry="14" fill="#fff8e1" opacity="0.44" filter="url(#glow)"/>
+<ellipse cx="905"  cy="145" rx="22" ry="17" fill="#fffde7" opacity="0.52" filter="url(#glow)"/>
+<ellipse cx="420"  cy="255" rx="16" ry="13" fill="#fff8e1" opacity="0.38"/>
+<ellipse cx="1025" cy="248" rx="17" ry="13" fill="#fff8e1" opacity="0.38"/>
+<ellipse cx="722"  cy="186" rx="26" ry="20" fill="#fffff0" opacity="0.45" filter="url(#glow)"/>
+<ellipse cx="590"  cy="240" rx="15" ry="11" fill="#fff9c4" opacity="0.32"/>
+<ellipse cx="860"  cy="234" rx="14" ry="11" fill="#fff9c4" opacity="0.32"/>
+<ellipse cx="720"  cy="90"  rx="35" ry="28" fill="#ffffff"  opacity="0.78" filter="url(#glow)"/>
+<ellipse cx="655"  cy="72"  rx="25" ry="20" fill="#fffde7"  opacity="0.58" filter="url(#glow)"/>
+<ellipse cx="792"  cy="78"  rx="28" ry="21" fill="#fffde7"  opacity="0.62" filter="url(#glow)"/>
+
+<!-- ════ 5. MAIN BRANCHES — multi-layer bark texture ════
+     Each branch = 4 paths: shadow base, mid, warm highlight, bright centre
+     This creates a rounded 3D bark feel.
+════ -->
+
+<!-- ─── FAR-LEFT SWEEPING ARM ─── -->
+<!-- Shadow base -->
+<path d="M 700 545 C 600 490 450 415 305 348 C 218 305 130 268 52 232"
+      stroke="#120600" stroke-width="46" fill="none" stroke-linecap="round" opacity="0.95"/>
+<!-- Mid bark -->
+<path d="M 700 545 C 600 490 450 415 305 348 C 218 305 130 268 52 232"
+      stroke="#3c1e08" stroke-width="36" fill="none" stroke-linecap="round" opacity="0.92"/>
+<!-- Warm tone -->
+<path d="M 700 545 C 600 490 450 415 305 348 C 218 305 130 268 52 232"
+      stroke="#6e3e18" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.80"/>
+<!-- Highlight -->
+<path d="M 700 545 C 602 488 452 413 308 347 C 222 304 135 268 56 233"
+      stroke="#a86a35" stroke-width="9"  fill="none" stroke-linecap="round" opacity="0.40"/>
+<!-- Bark texture lines -->
+<path d="M 700 545 C 600 490 450 415 305 348 C 218 305 130 268 52 232"
+      stroke="#8a5520" stroke-width="3"  fill="none" stroke-linecap="round" stroke-dasharray="4 28" opacity="0.28"/>
+
+<!-- ─── SECOND LEFT ARM (lower sweep) ─── -->
+<path d="M 690 560 C 580 510 420 455 275 415 C 195 390 120 375 55 362"
+      stroke="#120600" stroke-width="38" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 690 560 C 580 510 420 455 275 415 C 195 390 120 375 55 362"
+      stroke="#3c1e08" stroke-width="29" fill="none" stroke-linecap="round" opacity="0.88"/>
+<path d="M 690 560 C 580 510 420 455 275 415 C 195 390 120 375 55 362"
+      stroke="#6e3e18" stroke-width="17" fill="none" stroke-linecap="round" opacity="0.75"/>
+<path d="M 692 558 C 582 508 422 453 277 413"
+      stroke="#a86a35" stroke-width="7"  fill="none" stroke-linecap="round" opacity="0.35"/>
+
+<!-- ─── UPPER-LEFT ARM (rising to canopy) ─── -->
+<path d="M 695 520 C 665 445 640 355 628 268 C 618 195 618 148 622 102"
+      stroke="#120600" stroke-width="34" fill="none" stroke-linecap="round" opacity="0.92"/>
+<path d="M 695 520 C 665 445 640 355 628 268 C 618 195 618 148 622 102"
+      stroke="#3c1e08" stroke-width="26" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 695 520 C 665 445 640 355 628 268 C 618 195 618 148 622 102"
+      stroke="#6e3e18" stroke-width="15" fill="none" stroke-linecap="round" opacity="0.75"/>
+<path d="M 697 518 C 667 443 642 353 630 266 C 620 193 620 147 624 101"
+      stroke="#b07838" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.32"/>
+
+<!-- ─── CENTRE-LEFT (forking up-left from trunk) ─── -->
+<path d="M 705 530 C 688 445 672 340 660 238 C 652 172 648 128 645 82"
+      stroke="#120600" stroke-width="28" fill="none" stroke-linecap="round" opacity="0.88"/>
+<path d="M 705 530 C 688 445 672 340 660 238 C 652 172 648 128 645 82"
+      stroke="#3c1e08" stroke-width="21" fill="none" stroke-linecap="round" opacity="0.86"/>
+<path d="M 705 530 C 688 445 672 340 660 238 C 652 172 648 128 645 82"
+      stroke="#6e3e18" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.72"/>
+<path d="M 707 528 C 690 443 674 338 662 236"
+      stroke="#b07838" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.28"/>
+
+<!-- ─── MAIN CENTRAL TRUNK (thickest) ─── -->
+<path d="M 720 870 C 720 760 720 650 720 545 C 720 460 720 340 720 215 C 720 158 720 118 720 82"
+      stroke="#0c0400" stroke-width="62" fill="none" stroke-linecap="round" opacity="0.97"/>
+<path d="M 720 870 C 720 760 720 650 720 545 C 720 460 720 340 720 215 C 720 158 720 118 720 82"
+      stroke="#2c1406" stroke-width="50" fill="none" stroke-linecap="round" opacity="0.94"/>
+<path d="M 720 870 C 720 760 720 650 720 545 C 720 460 720 340 720 215 C 720 158 720 118 720 82"
+      stroke="#5a3010" stroke-width="34" fill="none" stroke-linecap="round" opacity="0.88"/>
+<path d="M 720 870 C 720 760 720 650 720 545 C 720 460 720 340 720 215"
+      stroke="#8a5828" stroke-width="16" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M 720 870 C 720 760 720 650 720 545 C 720 460 720 340 720 215"
+      stroke="#c0844a" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.22"/>
+<!-- bark marks on trunk -->
+<path d="M 712 820 Q 728 810 712 800" stroke="#2c1406" stroke-width="2.5" fill="none" opacity="0.40"/>
+<path d="M 728 762 Q 712 752 726 742" stroke="#2c1406" stroke-width="2.5" fill="none" opacity="0.35"/>
+<path d="M 714 700 Q 730 692 714 682" stroke="#2c1406" stroke-width="2.5" fill="none" opacity="0.32"/>
+<path d="M 726 638 Q 712 628 726 618" stroke="#2c1406" stroke-width="2.5" fill="none" opacity="0.30"/>
+
+<!-- ─── CENTRE-RIGHT ─── -->
+<path d="M 735 530 C 752 445 768 340 780 238 C 788 172 792 128 795 82"
+      stroke="#120600" stroke-width="28" fill="none" stroke-linecap="round" opacity="0.88"/>
+<path d="M 735 530 C 752 445 768 340 780 238 C 788 172 792 128 795 82"
+      stroke="#3c1e08" stroke-width="21" fill="none" stroke-linecap="round" opacity="0.86"/>
+<path d="M 735 530 C 752 445 768 340 780 238 C 788 172 792 128 795 82"
+      stroke="#6e3e18" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.72"/>
+<path d="M 733 528 C 750 443 766 338 778 236"
+      stroke="#b07838" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.28"/>
+
+<!-- ─── UPPER-RIGHT ARM ─── -->
+<path d="M 745 520 C 775 445 800 355 812 268 C 822 195 822 148 818 102"
+      stroke="#120600" stroke-width="34" fill="none" stroke-linecap="round" opacity="0.92"/>
+<path d="M 745 520 C 775 445 800 355 812 268 C 822 195 822 148 818 102"
+      stroke="#3c1e08" stroke-width="26" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 745 520 C 775 445 800 355 812 268 C 822 195 822 148 818 102"
+      stroke="#6e3e18" stroke-width="15" fill="none" stroke-linecap="round" opacity="0.75"/>
+<path d="M 743 518 C 773 443 798 353 810 266"
+      stroke="#b07838" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.32"/>
+
+<!-- ─── SECOND RIGHT ARM ─── -->
+<path d="M 750 560 C 860 510 1020 455 1165 415 C 1245 390 1320 375 1385 362"
+      stroke="#120600" stroke-width="38" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 750 560 C 860 510 1020 455 1165 415 C 1245 390 1320 375 1385 362"
+      stroke="#3c1e08" stroke-width="29" fill="none" stroke-linecap="round" opacity="0.88"/>
+<path d="M 750 560 C 860 510 1020 455 1165 415 C 1245 390 1320 375 1385 362"
+      stroke="#6e3e18" stroke-width="17" fill="none" stroke-linecap="round" opacity="0.75"/>
+<path d="M 748 558 C 858 508 1018 453 1163 413"
+      stroke="#a86a35" stroke-width="7"  fill="none" stroke-linecap="round" opacity="0.35"/>
+
+<!-- ─── FAR-RIGHT SWEEPING ARM ─── -->
+<path d="M 740 545 C 840 490 990 415 1135 348 C 1222 305 1310 268 1388 232"
+      stroke="#120600" stroke-width="46" fill="none" stroke-linecap="round" opacity="0.95"/>
+<path d="M 740 545 C 840 490 990 415 1135 348 C 1222 305 1310 268 1388 232"
+      stroke="#3c1e08" stroke-width="36" fill="none" stroke-linecap="round" opacity="0.92"/>
+<path d="M 740 545 C 840 490 990 415 1135 348 C 1222 305 1310 268 1388 232"
+      stroke="#6e3e18" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.80"/>
+<path d="M 738 543 C 838 488 988 413 1133 346 C 1220 303 1308 266 1386 231"
+      stroke="#a86a35" stroke-width="9"  fill="none" stroke-linecap="round" opacity="0.40"/>
+<path d="M 740 545 C 840 490 990 415 1135 348"
+      stroke="#8a5520" stroke-width="3"  fill="none" stroke-linecap="round" stroke-dasharray="4 28" opacity="0.28"/>
+
+<!-- ─── SECONDARY BRANCHES (thinner, off main arms) ─── -->
+<!-- Off left arm upper -->
+<path d="M 520 412 C 480 368 432 318 395 275" stroke="#2c1406" stroke-width="16" fill="none" stroke-linecap="round" opacity="0.82"/>
+<path d="M 520 412 C 480 368 432 318 395 275" stroke="#5a3010" stroke-width="11" fill="none" stroke-linecap="round" opacity="0.78"/>
+<path d="M 520 412 C 480 368 432 318 395 275" stroke="#8a5828" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.42"/>
+
+<path d="M 422 358 C 398 318 375 272 355 228" stroke="#2c1406" stroke-width="13" fill="none" stroke-linecap="round" opacity="0.80"/>
+<path d="M 422 358 C 398 318 375 272 355 228" stroke="#5a3010" stroke-width="9"  fill="none" stroke-linecap="round" opacity="0.75"/>
+<path d="M 422 358 C 398 318 375 272 355 228" stroke="#7a4820" stroke-width="4"  fill="none" stroke-linecap="round" opacity="0.38"/>
+
+<!-- Off right arm upper -->
+<path d="M 920 412 C 960 368 1008 318 1045 275" stroke="#2c1406" stroke-width="16" fill="none" stroke-linecap="round" opacity="0.82"/>
+<path d="M 920 412 C 960 368 1008 318 1045 275" stroke="#5a3010" stroke-width="11" fill="none" stroke-linecap="round" opacity="0.78"/>
+<path d="M 920 412 C 960 368 1008 318 1045 275" stroke="#8a5828" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.42"/>
+
+<path d="M 1018 358 C 1042 318 1065 272 1085 228" stroke="#2c1406" stroke-width="13" fill="none" stroke-linecap="round" opacity="0.80"/>
+<path d="M 1018 358 C 1042 318 1065 272 1085 228" stroke="#5a3010" stroke-width="9"  fill="none" stroke-linecap="round" opacity="0.75"/>
+<path d="M 1018 358 C 1042 318 1065 272 1085 228" stroke="#7a4820" stroke-width="4"  fill="none" stroke-linecap="round" opacity="0.38"/>
+
+<!-- Smaller crossing branches (the lattice look from the photo) -->
+<path d="M 640 488 C 600 448 558 398 525 355" stroke="#3c1e08" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.75"/>
+<path d="M 640 488 C 600 448 558 398 525 355" stroke="#6e3e18" stroke-width="7"  fill="none" stroke-linecap="round" opacity="0.65"/>
+<path d="M 680 502 C 662 445 648 368 638 295" stroke="#3c1e08" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.72"/>
+<path d="M 680 502 C 662 445 648 368 638 295" stroke="#6e3e18" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.60"/>
+<path d="M 760 502 C 778 445 792 368 802 295" stroke="#3c1e08" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.72"/>
+<path d="M 760 502 C 778 445 792 368 802 295" stroke="#6e3e18" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.60"/>
+<path d="M 800 488 C 840 448 882 398 915 355" stroke="#3c1e08" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.75"/>
+<path d="M 800 488 C 840 448 882 398 915 355" stroke="#6e3e18" stroke-width="7"  fill="none" stroke-linecap="round" opacity="0.65"/>
+<!-- Diagonal crossers -->
+<path d="M 580 465 C 630 430 672 395 695 355" stroke="#3c1e08" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.62"/>
+<path d="M 580 465 C 630 430 672 395 695 355" stroke="#6e3e18" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.50"/>
+<path d="M 860 465 C 810 430 768 395 745 355" stroke="#3c1e08" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.62"/>
+<path d="M 860 465 C 810 430 768 395 745 355" stroke="#6e3e18" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.50"/>
+
+<!-- ════ 6. PROP ROOTS / AERIAL ROOTS ════ -->
+<!-- These hang from branches and touch the ground — key banyan feature -->
+<!-- Left side established prop roots (thicker, touch ground) -->
+<path d="M 385 338 C 375 480 368 635 362 780 C 359 828 357 858 355 900"
+      stroke="#1e0e04" stroke-width="19" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 385 338 C 375 480 368 635 362 780 C 359 828 357 858 355 900"
+      stroke="#3c2008" stroke-width="13" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 387 340 C 377 482 370 637 364 782"
+      stroke="#6a3e18" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.45"/>
+
+<path d="M 452 308 C 444 458 438 618 432 775 C 430 832 428 862 426 900"
+      stroke="#1e0e04" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.92"/>
+<path d="M 452 308 C 444 458 438 618 432 775 C 430 832 428 862 426 900"
+      stroke="#3c2008" stroke-width="15" fill="none" stroke-linecap="round" opacity="0.88"/>
+<path d="M 454 310 C 446 460 440 620 434 777"
+      stroke="#7a4828" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.42"/>
+
+<path d="M 525 278 C 518 435 512 598 507 758 C 505 825 503 860 501 900"
+      stroke="#1e0e04" stroke-width="20" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 525 278 C 518 435 512 598 507 758 C 505 825 503 860 501 900"
+      stroke="#3c2008" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.86"/>
+<path d="M 527 280 C 520 437 514 600 509 760"
+      stroke="#6a3e18" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.40"/>
+
+<!-- Left side hanging aerial roots (thinner, don't reach ground yet) -->
+<path d="M 310 368 C 305 498 302 628 300 748"
+      stroke="#2c1808" stroke-width="7"  fill="none" stroke-linecap="round" opacity="0.65"/>
+<path d="M 310 368 C 305 498 302 628 300 748"
+      stroke="#5a3818" stroke-width="3"  fill="none" stroke-linecap="round" opacity="0.45"/>
+
+<path d="M 228 328 C 224 445 222 565 220 678"
+      stroke="#2c1808" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.58"/>
+<path d="M 590 258 C 585 418 580 578 576 738"
+      stroke="#2c1808" stroke-width="9"  fill="none" stroke-linecap="round" opacity="0.62"/>
+<path d="M 590 258 C 585 418 580 578 576 738"
+      stroke="#5a3818" stroke-width="4"  fill="none" stroke-linecap="round" opacity="0.42"/>
+<path d="M 628 228 C 624 395 620 562 617 728"
+      stroke="#2c1808" stroke-width="7"  fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M 660 202 C 657 378 654 545 651 715"
+      stroke="#2c1808" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.48"/>
+<path d="M 688 182 C 685 365 682 535 680 708"
+      stroke="#2c1808" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.42"/>
+
+<!-- Centre hanging -->
+<path d="M 708 162 C 706 342 704 518 702 698"
+      stroke="#2c1808" stroke-width="4"  fill="none" stroke-linecap="round" opacity="0.38"/>
+<path d="M 732 158 C 734 338 736 518 738 698"
+      stroke="#2c1808" stroke-width="4"  fill="none" stroke-linecap="round" opacity="0.38"/>
+
+<!-- Right side hanging aerial roots -->
+<path d="M 752 162 C 755 342 758 518 760 698"
+      stroke="#2c1808" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.42"/>
+<path d="M 780 182 C 783 365 786 535 788 708"
+      stroke="#2c1808" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.48"/>
+<path d="M 812 202 C 815 378 818 545 821 715"
+      stroke="#2c1808" stroke-width="7"  fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M 850 228 C 854 395 858 562 861 728"
+      stroke="#2c1808" stroke-width="7"  fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M 888 258 C 893 418 898 578 902 738"
+      stroke="#2c1808" stroke-width="9"  fill="none" stroke-linecap="round" opacity="0.62"/>
+<path d="M 888 258 C 893 418 898 578 902 738"
+      stroke="#5a3818" stroke-width="4"  fill="none" stroke-linecap="round" opacity="0.42"/>
+
+<!-- Right established prop roots -->
+<path d="M 915 278 C 922 435 928 598 933 758 C 935 825 937 860 939 900"
+      stroke="#1e0e04" stroke-width="20" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 915 278 C 922 435 928 598 933 758 C 935 825 937 860 939 900"
+      stroke="#3c2008" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.86"/>
+<path d="M 913 280 C 920 437 926 600 931 760"
+      stroke="#6a3e18" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.40"/>
+
+<path d="M 988 308 C 996 458 1002 618 1008 775 C 1010 832 1012 862 1014 900"
+      stroke="#1e0e04" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.92"/>
+<path d="M 988 308 C 996 458 1002 618 1008 775 C 1010 832 1012 862 1014 900"
+      stroke="#3c2008" stroke-width="15" fill="none" stroke-linecap="round" opacity="0.88"/>
+<path d="M 986 310 C 994 460 1000 620 1006 777"
+      stroke="#7a4828" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.42"/>
+
+<path d="M 1055 338 C 1065 480 1072 635 1078 780 C 1081 828 1083 858 1085 900"
+      stroke="#1e0e04" stroke-width="19" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 1055 338 C 1065 480 1072 635 1078 780 C 1081 828 1083 858 1085 900"
+      stroke="#3c2008" stroke-width="13" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 1053 340 C 1063 482 1070 637 1076 782"
+      stroke="#6a3e18" stroke-width="6"  fill="none" stroke-linecap="round" opacity="0.45"/>
+
+<path d="M 1130 368 C 1135 498 1138 628 1140 748"
+      stroke="#2c1808" stroke-width="7"  fill="none" stroke-linecap="round" opacity="0.65"/>
+<path d="M 1130 368 C 1135 498 1138 628 1140 748"
+      stroke="#5a3818" stroke-width="3"  fill="none" stroke-linecap="round" opacity="0.45"/>
+
+<!-- ════ 7. MULTIPLE TRUNK STEMS AT BASE ════ -->
+<!-- This is KEY to realism — banyan has multiple ground-level trunks -->
+<!-- Left offset trunk -->
+<path d="M 560 900 C 575 808 592 725 610 655 C 625 600 648 565 678 548"
+      stroke="#0c0400" stroke-width="48" fill="none" stroke-linecap="round" opacity="0.96"/>
+<path d="M 560 900 C 575 808 592 725 610 655 C 625 600 648 565 678 548"
+      stroke="#2c1406" stroke-width="36" fill="none" stroke-linecap="round" opacity="0.93"/>
+<path d="M 560 900 C 575 808 592 725 610 655 C 625 600 648 565 678 548"
+      stroke="#5a3010" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 562 898 C 577 806 594 723 612 653"
+      stroke="#9a6030" stroke-width="8"  fill="none" stroke-linecap="round" opacity="0.42"/>
+
+<!-- Right offset trunk -->
+<path d="M 880 900 C 865 808 848 725 830 655 C 815 600 792 565 762 548"
+      stroke="#0c0400" stroke-width="48" fill="none" stroke-linecap="round" opacity="0.96"/>
+<path d="M 880 900 C 865 808 848 725 830 655 C 815 600 792 565 762 548"
+      stroke="#2c1406" stroke-width="36" fill="none" stroke-linecap="round" opacity="0.93"/>
+<path d="M 880 900 C 865 808 848 725 830 655 C 815 600 792 565 762 548"
+      stroke="#5a3010" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.85"/>
+<path d="M 878 898 C 863 806 846 723 828 653"
+      stroke="#9a6030" stroke-width="8"  fill="none" stroke-linecap="round" opacity="0.42"/>
+
+<!-- Far-left secondary trunk -->
+<path d="M 455 900 C 468 822 482 748 498 680 C 512 618 530 572 552 545"
+      stroke="#0c0400" stroke-width="34" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 455 900 C 468 822 482 748 498 680 C 512 618 530 572 552 545"
+      stroke="#3c1e08" stroke-width="24" fill="none" stroke-linecap="round" opacity="0.86"/>
+<path d="M 455 900 C 468 822 482 748 498 680 C 512 618 530 572 552 545"
+      stroke="#6a3a18" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.72"/>
+<path d="M 457 898 C 470 820 484 746 500 678"
+      stroke="#8a5828" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.35"/>
+
+<!-- Far-right secondary trunk -->
+<path d="M 985 900 C 972 822 958 748 942 680 C 928 618 910 572 888 545"
+      stroke="#0c0400" stroke-width="34" fill="none" stroke-linecap="round" opacity="0.90"/>
+<path d="M 985 900 C 972 822 958 748 942 680 C 928 618 910 572 888 545"
+      stroke="#3c1e08" stroke-width="24" fill="none" stroke-linecap="round" opacity="0.86"/>
+<path d="M 985 900 C 972 822 958 748 942 680 C 928 618 910 572 888 545"
+      stroke="#6a3a18" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.72"/>
+<path d="M 983 898 C 970 820 956 746 940 678"
+      stroke="#8a5828" stroke-width="5"  fill="none" stroke-linecap="round" opacity="0.35"/>
+
+<!-- ════ 8. ROOT BUTTRESSES at ground ════ -->
+<path d="M 598 900 C 548 868 478 855 415 862 L 400 900 Z" fill="#160804" opacity="0.88"/>
+<path d="M 612 900 C 568 875 502 864 445 870 L 432 900 Z" fill="#2a1208" opacity="0.72"/>
+<path d="M 842 900 C 892 868 962 855 1025 862 L 1040 900 Z" fill="#160804" opacity="0.88"/>
+<path d="M 828 900 C 872 875 938 864 995 870 L 1008 900 Z" fill="#2a1208" opacity="0.72"/>
+<!-- Center root spread -->
+<path d="M 660 900 C 650 878 642 862 636 850 L 620 900 Z" fill="#1e0e04" opacity="0.75"/>
+<path d="M 780 900 C 790 878 798 862 804 850 L 820 900 Z" fill="#1e0e04" opacity="0.75"/>
+
+<!-- ════ 9. GROUND ════ -->
+<path d="M 0 870 Q 240 858 480 863 Q 720 868 960 862 Q 1200 856 1440 864 L 1440 900 L 0 900 Z"
+      fill="#1a5420" opacity="0.60"/>
+<path d="M 0 882 Q 360 876 720 879 Q 1080 882 1440 876 L 1440 900 L 0 900 Z"
+      fill="#0d2a0d" opacity="0.65"/>
+<!-- Warm golden ground scatter (fallen leaves look) -->
+<ellipse cx="480" cy="888" rx="85" ry="8" fill="#a0620a" opacity="0.22"/>
+<ellipse cx="960" cy="885" rx="90" ry="8" fill="#a0620a" opacity="0.22"/>
+<ellipse cx="720" cy="892" rx="120" ry="9" fill="#8a4a08" opacity="0.18"/>
+
+<!-- ════ 10. FRONT FOLIAGE TOUCHES (closest leaves) ════ -->
+<ellipse cx="142"  cy="392" rx="118" ry="85" fill="#3ca03c" opacity="0.50"/>
+<ellipse cx="1298" cy="388" rx="120" ry="87" fill="#3ca03c" opacity="0.50"/>
+<ellipse cx="258"  cy="442" rx="95"  ry="68" fill="#52c052" opacity="0.38"/>
+<ellipse cx="1185" cy="438" rx="97"  ry="70" fill="#52c052" opacity="0.38"/>
+
+</svg>
+
+<!-- LEAF CANVAS -->
+<canvas id="leaf-canvas"></canvas>
+
+<!-- AMBIENT LABEL -->
+<div id="env-label">A tranquil space for medical guidance…</div>
+
+<!-- CHATBOX -->
+<div id="cb-wrap">
+  <div id="chatbox">
+    <div id="cb-header">
+      <div class="cb-avatar">🌿</div>
+      <div>
+        <h2>AI Clinical Assistant</h2>
+        <p>640-page medical encyclopedia · RAG-powered</p>
+      </div>
     </div>
+    <div id="messages">
+      <div class="msg bot">
+        <div class="lbl">Clinical AI</div>
+        Welcome. I'm your AI-powered medical guide, drawing from a comprehensive clinical encyclopedia.
+        Ask about symptoms, diagnoses, medications, or any health concern.
+        <br><br>
+        <em style="font-size:12px;opacity:0.6;">Always consult a licensed physician for personal medical advice.</em>
+      </div>
+    </div>
+    <div id="cb-input-row">
+      <input id="cb-input" type="text" placeholder="Ask a clinical question…" autocomplete="off" maxlength="500"/>
+      <button id="cb-send" title="Send">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
 
-    <script>
-        const chatbox = document.getElementById('chatbox');
-        const messageInput = document.getElementById('messageInput');
-        const sendBtn = document.getElementById('sendBtn');
+<script>
+'use strict';
 
-        function addMessage(text, isUser) {
-            const div = document.createElement('div');
-            div.className = 'message ' + (isUser ? 'user' : 'bot');
-            div.textContent = text;
-            chatbox.appendChild(div);
-            chatbox.scrollTop = chatbox.scrollHeight;
-        }
+/* ══════════════════════════════
+   CONFIG — every tunable value
+══════════════════════════════ */
+const CFG = {
+  INITIAL_DELAY : 1100,     // ms before first chatbox appearance on load
+  HIDE_DUR      : 420,      // ms to shrink into trunk (disappear to scale 0)
+  APPEAR_DUR    : 2900,     // ms for leaf→center flight (~3s)
+  APPEAR_EASE   : 'cubic-bezier(0.34,1.15,0.64,1)',
 
-        async function sendMessage() {
-            const message = messageInput.value.trim();
-            if (!message) return;
+  LEAF_COUNT    : 68,       // total leaf particles (increased)
+  LEAF_SPEED_MIN: 0.045,
+  LEAF_SPEED_MAX: 0.28,
+  LEAF_SIZE_MIN : 5,
+  LEAF_SIZE_MAX : 17,
+  LEAF_OPA_MIN  : 0.18,
+  LEAF_OPA_MAX  : 0.75,
+  LEAF_SWAY_AMP : 0.30,
+  LEAF_SWAY_SPD : 0.006,
+};
 
-            addMessage(message, true);
-            messageInput.value = '';
-            
-            addMessage('Thinking...', false);
-            const loadingMsg = chatbox.lastChild;
+/* DOM */
+const cvs      = document.getElementById('leaf-canvas');
+const ctx      = cvs.getContext('2d');
+const cbWrap   = document.getElementById('cb-wrap');
+const msgBox   = document.getElementById('messages');
+const cbInput  = document.getElementById('cb-input');
+const sendBtn  = document.getElementById('cb-send');
+const envLabel = document.getElementById('env-label');
 
-            try {
-                const formData = new FormData();
-                formData.append('msg', message);
+/* State */
+const S = Object.freeze({ HIDDEN:0, APPEARING:1, VISIBLE:2, HIDING:3 });
+let chatState  = S.HIDDEN;
+let pausedLeaf = null;
 
-                const response = await fetch('/get', {
-                    method: 'POST',
-                    body: formData
-                });
+/* ── RESIZE ── */
+function resizeCvs() { cvs.width = window.innerWidth; cvs.height = window.innerHeight; }
 
-                const result = await response.text();
-                loadingMsg.remove();
-                addMessage(result, false);
-            } catch (error) {
-                loadingMsg.remove();
-                addMessage('Error: ' + error.message, false);
-            }
-        }
+/* ════════════════════════════════
+   LEAF SYSTEM
+════════════════════════════════ */
+class Leaf {
+  constructor(scatter) { this.reset(scatter); }
+  reset(scatter = false) {
+    this.x       = Math.random() * cvs.width;
+    this.y       = scatter
+                   ? Math.random() * cvs.height
+                   : -(Math.random() * cvs.height * 0.7);
+    this.size    = CFG.LEAF_SIZE_MIN + Math.random() * (CFG.LEAF_SIZE_MAX - CFG.LEAF_SIZE_MIN);
+    this.speed   = CFG.LEAF_SPEED_MIN + Math.random() * (CFG.LEAF_SPEED_MAX - CFG.LEAF_SPEED_MIN);
+    this.sway    = CFG.LEAF_SWAY_AMP * (0.3 + Math.random());
+    this.wobble  = Math.random() * Math.PI * 2;
+    this.wobSpd  = CFG.LEAF_SWAY_SPD * (0.5 + Math.random());
+    this.rot     = Math.random() * Math.PI * 2;
+    this.rotSpd  = (Math.random() - 0.5) * 0.010;
+    this.opacity = CFG.LEAF_OPA_MIN + Math.random() * (CFG.LEAF_OPA_MAX - CFG.LEAF_OPA_MIN);
+    this.hue     = 78 + Math.random() * 58;   /* yellow-green → green */
+    this.sat     = 48 + Math.random() * 38;
+    this.lit     = 22 + Math.random() * 26;
+    this.paused  = false;
+  }
+  update() {
+    if (this.paused) return;
+    this.wobble += this.wobSpd;
+    this.x      += Math.sin(this.wobble) * this.sway;
+    this.y      += this.speed;
+    this.rot    += this.rotSpd;
+    if (this.y > cvs.height + 30) this.reset(false);
+  }
+  draw(c) {
+    c.save();
+    c.translate(this.x, this.y);
+    c.rotate(this.rot);
+    c.globalAlpha = this.opacity;
+    c.fillStyle   = `hsl(${this.hue},${this.sat}%,${this.lit}%)`;
+    const h = this.size, w = this.size * 0.52;
+    c.beginPath();
+    c.moveTo(0,-h);
+    c.bezierCurveTo( w*1.1,-h*.25,  w, h*.42, 0, h);
+    c.bezierCurveTo(-w,     h*.42, -w*1.1,-h*.25, 0,-h);
+    c.closePath(); c.fill();
+    /* vein */
+    c.strokeStyle = `hsl(${this.hue},36%,${this.lit+13}%)`;
+    c.globalAlpha = this.opacity * 0.36;
+    c.lineWidth   = 0.5;
+    c.beginPath(); c.moveTo(0,-h*.78); c.lineTo(0,h*.78); c.stroke();
+    c.restore();
+  }
+}
 
-        sendBtn.addEventListener('click', sendMessage);
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-    </script>
+let leaves = [];
+function initLeaves() {
+  leaves = Array.from({length: CFG.LEAF_COUNT}, () => new Leaf(true));
+}
+
+function pickLeaf() {
+  const pool = leaves.filter(l =>
+    !l.paused &&
+    l.y > cvs.height * 0.07 && l.y < cvs.height * 0.78 &&
+    l.x > cvs.width  * 0.05 && l.x < cvs.width  * 0.95
+  );
+  if (!pool.length) return { x: cvs.width/2, y: cvs.height*0.3 };
+  pausedLeaf = pool[Math.floor(Math.random() * pool.length)];
+  pausedLeaf.paused = true;
+  return { x: pausedLeaf.x, y: pausedLeaf.y };
+}
+
+function releaseLeaf() {
+  if (pausedLeaf) { pausedLeaf.paused = false; pausedLeaf = null; }
+}
+
+function tickLeaves() {
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+  leaves.forEach(l => { l.update(); l.draw(ctx); });
+  requestAnimationFrame(tickLeaves);
+}
+
+/* ════════════════════════════════
+   CHATBOX ANIMATIONS
+   ▸ FIX: scale reaches true 0 AND opacity 0
+════════════════════════════════ */
+
+function setHidden() {
+  /* Instantly set to hidden state — no transition */
+  cbWrap.style.transition = 'none';
+  cbWrap.style.transform  = 'translate(-50%, -50%) scale(0)';
+  cbWrap.style.opacity    = '0';
+  void cbWrap.offsetWidth; /* flush */
+}
+
+function appearFromTrunk() {
+  if (chatState === S.VISIBLE || chatState === S.APPEARING) return;
+  chatState = S.APPEARING;
+  envLabel.classList.add('invisible');
+
+  setHidden();
+
+  const dur = Math.round(CFG.APPEAR_DUR * 0.55);
+  /* Transition: both scale AND opacity */
+  cbWrap.style.transition = `transform ${dur}ms ${CFG.APPEAR_EASE}, opacity ${Math.round(dur*0.6)}ms ease`;
+  cbWrap.style.transform  = 'translate(-50%, -50%) scale(1)';
+  cbWrap.style.opacity    = '1';
+
+  setTimeout(() => {
+    chatState = S.VISIBLE;
+    cbInput.focus();
+    scrollBottom();
+  }, dur);
+}
+
+function appearFromLeaf() {
+  if (chatState === S.VISIBLE || chatState === S.APPEARING) return;
+  chatState = S.APPEARING;
+  envLabel.classList.add('invisible');
+
+  const leaf = pickLeaf();
+  const cx   = window.innerWidth  / 2;
+  const cy   = window.innerHeight / 2;
+  const dx   = leaf.x - cx;
+  const dy   = leaf.y - cy;
+
+  /* Start at leaf position, fully invisible, scale 0 */
+  cbWrap.style.transition = 'none';
+  cbWrap.style.transform  = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0)`;
+  cbWrap.style.opacity    = '0';
+  void cbWrap.offsetWidth;
+
+  /* Fly to centre, grow, fade in */
+  cbWrap.style.transition = `transform ${CFG.APPEAR_DUR}ms ${CFG.APPEAR_EASE}, opacity ${Math.round(CFG.APPEAR_DUR*0.35)}ms ease`;
+  cbWrap.style.transform  = 'translate(-50%, -50%) scale(1)';
+  cbWrap.style.opacity    = '1';
+
+  setTimeout(() => {
+    releaseLeaf();
+    chatState = S.VISIBLE;
+    cbInput.focus();
+    scrollBottom();
+  }, CFG.APPEAR_DUR);
+}
+
+function hideChatbox(onDone) {
+  if (chatState !== S.VISIBLE) { if (onDone) onDone(); return; }
+  chatState = S.HIDING;
+
+  const drift = Math.min(window.innerHeight * 0.07, 55);
+
+  /* ▸ THE FIX: animate to scale(0) and opacity 0 — truly invisible */
+  cbWrap.style.transition = `transform ${CFG.HIDE_DUR}ms ease-in, opacity ${Math.round(CFG.HIDE_DUR*0.65)}ms ease-in`;
+  cbWrap.style.transform  = `translate(-50%, calc(-50% + ${drift}px)) scale(0)`;
+  cbWrap.style.opacity    = '0';
+
+  setTimeout(() => {
+    chatState = S.HIDDEN;
+    envLabel.classList.remove('invisible');
+    if (onDone) onDone();
+  }, CFG.HIDE_DUR + 30);
+}
+
+/* ════════════════════════════════
+   MESSAGES
+════════════════════════════════ */
+function scrollBottom() { msgBox.scrollTop = msgBox.scrollHeight; }
+
+function addMessage(text, isUser) {
+  const d   = document.createElement('div');
+  d.className = 'msg ' + (isUser ? 'user' : 'bot');
+  const lbl = document.createElement('div');
+  lbl.className = 'lbl'; lbl.textContent = isUser ? 'You' : 'Clinical AI';
+  d.appendChild(lbl);
+  if (isUser) {
+    d.appendChild(document.createTextNode(text));
+  } else {
+    const s = document.createElement('span');
+    s.innerHTML = escHtml(text).replace(/\n/g,'<br>');
+    d.appendChild(s);
+  }
+  msgBox.appendChild(d); scrollBottom();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ════════════════════════════════
+   SEND — DEMO (swap for Flask /get)
+════════════════════════════════ */
+const DEMO = [
+  "Based on clinical literature, this presentation involves disruption of normal physiological homeostasis. Underlying mechanisms vary with patient demographics and comorbidities.",
+  "Standard guidelines recommend a stepwise approach: lifestyle modification first, then pharmacological intervention based on severity indices and risk stratification.",
+  "Elevated inflammatory markers often accompany this condition. Differential diagnosis should encompass related syndromes to avoid misclassification.",
+  "The pathophysiology centres on immune-mediated tissue responses. Treatment is individualised according to validated severity scores and patient-specific contraindications.",
+  "Current evidence supports early intervention to prevent disease progression. Longitudinal biomarker monitoring is essential for assessing treatment response.",
+];
+let di = 0;
+
+async function handleSend() {
+  const msg = cbInput.value.trim();
+  if (!msg || chatState !== S.VISIBLE) return;
+  cbInput.value = ''; sendBtn.disabled = true;
+  addMessage(msg, true);
+
+  hideChatbox(async () => {
+    envLabel.textContent = 'Consulting the medical knowledge base…';
+    try {
+      /* ── FLASK: uncomment these 4 lines, remove the demo block ──*/
+         const fd = new FormData();
+         fd.append('msg', msg);
+         const res = await fetch('/get', { method:'POST', body:fd });
+         const reply = await res.text();
+         addMessage(reply, false);       
+
+    } catch(e) {
+      addMessage('Connection error — please try again.', false);
+    } finally {
+      sendBtn.disabled = false;
+      envLabel.textContent = 'A tranquil space for medical guidance…';
+      appearFromLeaf();
+    }
+  });
+}
+
+/* ════════════════════════════════
+   EVENTS
+════════════════════════════════ */
+sendBtn.addEventListener('click', handleSend);
+cbInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+});
+window.addEventListener('resize', () => {
+  resizeCvs();
+  if (chatState === S.VISIBLE) {
+    cbWrap.style.transition = 'none';
+    cbWrap.style.transform  = 'translate(-50%, -50%) scale(1)';
+    cbWrap.style.opacity    = '1';
+  }
+});
+
+/* ════════════════════════════════
+   BOOT
+════════════════════════════════ */
+resizeCvs();
+initLeaves();
+tickLeaves();
+setTimeout(appearFromTrunk, CFG.INITIAL_DELAY);
+</script>
 </body>
 </html>
