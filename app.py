@@ -50,7 +50,7 @@ except Exception as e:
 print("\n🤖 Connecting to Groq...")
 try:
     llm = ChatGroq(
-        model="llama3-8b-8192",
+        model="openai/gpt-oss-20b",
         temperature=0.2,
         groq_api_key=GROQ_API_KEY
     )
